@@ -1,0 +1,124 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+  exit 84
+fi
+
+CONFIG_FILE=$1
+PROJECT_DIR=""
+SOURCES_DIR=""
+HEADERS_DIR=""
+LIBS_DIR=""
+EXEC=""
+CC=""
+CFLAGS=""
+LDFLAGS=""
+BCK_DIR="backup"
+ZIP="tar"
+ZIPFLAGS="-cvvf"
+UNZIP="tar"
+UNZIPFLAGS="-xvf"
+SOURCES=()
+
+while IFS=';' read -r key value; do
+  case $key in
+    PROJECT_DIR) PROJECT_DIR=$value  ;;
+    SOURCES_DIR) SOURCES_DIR=$value ;;
+    HEADERS_DIR) HEADERS_DIR=$value ;;
+    LIBS_DIR) LIBS_DIR=$value ;;
+    EXEC) EXEC=$value ;;
+    CC) CC=$value ;;
+    CFLAGS) CFLAGS=$value ;;
+    LDFLAGS) LDFLAGS=$value ;;
+    BCK_DIR) BCK_DIR=$value ;;
+    ZIP) ZIP=$value ;;
+    ZIPFLAGS) ZIPFLAGS=$value ;;
+    UNZIP) UNZIP=$value ;;
+    UNZIPFLAGS) UNZIPFLAGS=$value ;;
+    *) SOURCES+=("$key $value") ;;
+  esac
+done < "$CONFIG_FILE"
+
+if [ -z "$PROJECT_DIR" ]; then
+  exit 84
+fi
+
+INCLUDE_DIRS=()
+[[ -d "$SOURCES_DIR" ]] && INCLUDE_DIRS+=("$SOURCES_DIR/*")
+[[ -d "$HEADERS_DIR" ]] && INCLUDE_DIRS+=("$HEADERS_DIR/*")
+[[ -d "$LIBS_DIR" ]] && INCLUDE_DIRS+=("$LIBS_DIR/*")
+
+INCLUDE_FILES=$(IFS=" "; echo "${INCLUDE_DIRS[*]}")
+
+MAKEFILE="$PROJECT_DIR/Makefile"
+
+makefile_generator() {
+  {
+  echo "##"
+  echo "## EPITECH PROJECT, 2025"
+  echo "## Makefile"
+  echo "## File description:"
+  echo "## AutoMakefile"
+  echo "##"
+  echo "NAME        =   $EXEC"
+  echo ""
+  SRCS=
+  for source in "${SOURCES[@]}"; do
+    src_file=$(echo "$source" | cut -d ' ' -f 1)
+    SRCS+=" $src_file"
+  done
+  echo "SRCS        =   $SRCS"
+  echo ""
+  echo "OBJS        =   \$(SRCS:.c=.o)"
+  echo ""
+  echo "CPPFLAGS    =   -I./$HEADERS_DIR -L./$LIBS_DIR"
+  echo ""
+  echo "CFLAGS      =   $CFLAGS"
+  echo ""
+  echo "all:            \$(NAME)"
+  echo ""
+  echo "\$(NAME):        \$(OBJS)"
+  echo "	\$(CC) -o \$(NAME) \$(OBJS) \$(LDFLAGS)"
+  echo ""
+  echo "clean:"
+  echo "	\$(RM) -f \$(OBJS)"
+  echo "	\$(RM) -f *.gc*"
+  echo ""
+  echo "fclean:         clean"
+  echo "	\$(RM) -f \$(NAME)"
+  echo ""
+  echo "re:             fclean all"
+  echo ""
+  echo "archive:  count_archive.txt"
+  echo "	@mkdir -p $BCK_DIR"
+  echo "	@count=\$\$(cat count_archive.txt); \\"
+  echo "	new_count=\$\$((count + 1)); \\"
+  echo "	echo \$\$new_count > count_archive.txt; \\"
+  echo "	$ZIP $ZIPFLAGS $BCK_DIR/archive\$\$new_count.tar --exclude=$BCK_DIR/archive\$\$new_count.tar ./*; \\"
+  echo "	echo 'archive\$\$new_count.tar file created.\n'"
+  echo ""
+  echo "revert:"
+  echo "	$UNZIP $UNZIPFLAGS $BCK_DIR/archive\$\$(cat count_archive.txt).tar"
+  echo "	@echo 'archive\$\$(cat count_archive.txt).tar file unzipped.\n'"
+  echo ""
+  echo "num:"
+  echo "	@printf \"%03d\\n\" \$\$(cat count_archive.txt)"
+  echo ""
+  echo "delete:"
+  echo "	@count=\$\$(cat count_archive.txt); \\"
+  echo "	if [ \$\$count -gt 1 ]; then \\"
+  echo "		new_count=\$\$((count - 1)); \\"
+  echo "		\$(RM) -f $BCK_DIR/archive\$\$count.tar; \\"
+  echo "		echo 'Last backup archive deleted.'; \\"
+  echo "	else \\"
+  echo "		echo 'No backup archives to delete.'; \\"
+  echo "	fi"
+  echo ""
+  echo "count_archive.txt:"
+  echo "	@echo \"0\" > count_archive.txt"
+  } > "$MAKEFILE"
+}
+
+makefile_generator
+
+exit 0
